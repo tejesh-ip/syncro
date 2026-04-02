@@ -7,12 +7,13 @@ interface StoreState {
   isConnected: boolean;
   userId: string;
   nickname: string;
+  avatar: string;
   roomState: RoomState | null;
   
   // Actions
   initSession: () => void;
   connect: () => void;
-  joinRoom: (roomId: string, nickname: string) => void;
+  joinRoom: (roomId: string, nickname: string, avatar: string) => void;
   leaveRoom: () => void;
   addSong: (videoId: string, title: string, duration: number) => void;
   emitSongEnded: (videoId: string) => void;
@@ -37,7 +38,8 @@ export const useStore = create<StoreState>((set, get) => {
       socket.emit('join_room', { 
         roomId: state.roomState.id, 
         userId: state.userId, 
-        nickname: state.nickname 
+        nickname: state.nickname,
+        avatar: state.avatar || '🎧'
       });
     }
   });
@@ -50,6 +52,7 @@ export const useStore = create<StoreState>((set, get) => {
     isConnected: false,
     userId: '',
     nickname: '',
+    avatar: '🎧',
     roomState: null,
 
     initSession: () => {
@@ -57,13 +60,14 @@ export const useStore = create<StoreState>((set, get) => {
       if (typeof window !== 'undefined') {
         let storedId = localStorage.getItem('syncro_userId');
         const storedNick = localStorage.getItem('syncro_nickname');
+        const storedAvatar = localStorage.getItem('syncro_avatar');
         
         if (!storedId) {
           storedId = generateUserId();
           localStorage.setItem('syncro_userId', storedId);
         }
         
-        set({ userId: storedId, nickname: storedNick || '' });
+        set({ userId: storedId, nickname: storedNick || '', avatar: storedAvatar || '🎧' });
       }
     },
 
@@ -73,7 +77,7 @@ export const useStore = create<StoreState>((set, get) => {
       }
     },
 
-    joinRoom: (roomId: string, nickname: string) => {
+    joinRoom: (roomId: string, nickname: string, avatar: string) => {
       const state = get();
       if (!state.userId) {
         state.initSession(); // Just in case
@@ -81,12 +85,13 @@ export const useStore = create<StoreState>((set, get) => {
       
       const newUserId = get().userId || generateUserId();
       
-      set({ nickname, userId: newUserId });
+      set({ nickname, avatar, userId: newUserId });
       if (typeof window !== 'undefined') {
         localStorage.setItem('syncro_nickname', nickname);
+        localStorage.setItem('syncro_avatar', avatar);
       }
       
-      socket.emit('join_room', { roomId, userId: newUserId, nickname });
+      socket.emit('join_room', { roomId, userId: newUserId, nickname, avatar });
     },
 
     leaveRoom: () => {

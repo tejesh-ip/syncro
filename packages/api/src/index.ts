@@ -47,7 +47,7 @@ const socketUserMap = new Map<string, string>(); // socket.id -> userId
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  socket.on('join_room', ({ roomId, userId, nickname }) => {
+  socket.on('join_room', ({ roomId, userId, nickname, avatar }) => {
     // Basic cleanup of previous room if needed
     const currentRoomId = socketRoomMap.get(socket.id);
     if (currentRoomId) {
@@ -71,7 +71,7 @@ io.on('connection', (socket) => {
       room.destroyTimer = null;
     }
 
-    room.addUser(userId, socket.id, nickname);
+    room.addUser(userId, socket.id, nickname, avatar);
     
     socket.join(roomId);
     socketRoomMap.set(socket.id, roomId);

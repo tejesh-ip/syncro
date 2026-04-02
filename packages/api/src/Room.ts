@@ -13,11 +13,6 @@ const generateNeonColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
-const generateAvatar = () => {
-  const avatars = ['👾', '👽', '👻', '🤖', '🎃', '🤡', '🤠', '😎', '🤓', '🦊', '🐱', '🐼', '🐯', '🐰'];
-  return avatars[Math.floor(Math.random() * avatars.length)];
-};
-
 export class Room {
   public id: string;
   public users: Map<string, User> = new Map(); // Key is persistent userId
@@ -42,12 +37,13 @@ export class Room {
     this.id = id;
   }
 
-  public addUser(userId: string, socketId: string, nickname: string): User {
+  public addUser(userId: string, socketId: string, nickname: string, avatar: string): User {
     // If user already exists (e.g. reconnecting), just update their socketId
     if (this.users.has(userId)) {
       const existingUser = this.users.get(userId)!;
       existingUser.socketId = socketId;
       existingUser.nickname = nickname; // In case they changed it
+      existingUser.avatar = avatar; // In case they changed their emoji
       return existingUser;
     }
 
@@ -56,7 +52,7 @@ export class Room {
       socketId,
       nickname,
       color: generateNeonColor(),
-      avatar: generateAvatar(),
+      avatar: avatar || '🕺', // Fallback
       likesReceived: 0,
     };
     

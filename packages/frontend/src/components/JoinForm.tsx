@@ -2,21 +2,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { PlayCircle } from 'lucide-react';
+import { PlayCircle, Smile } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+const AVATARS = ['👾', '👽', '👻', '🤖', '🎃', '🤡', '🤠', '😎', '🤓', '🦊', '🐱', '🐼', '🐯', '🐰', '🎧', '🎸', '🌟', '🔥'];
 
 export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
   const [nickname, setNickname] = useState('');
   const [roomId, setRoomId] = useState(forcedRoomId || '');
+  const [avatar, setAvatar] = useState(AVATARS[0]);
+  const [showPicker, setShowPicker] = useState(false);
   const { connect, joinRoom } = useStore();
   const router = useRouter();
   const [hasInit, setHasInit] = useState(false);
 
   useEffect(() => {
     if (!hasInit && typeof window !== 'undefined') {
-      const stored = localStorage.getItem('syncro_nickname');
-      if (stored) {
-        setNickname(stored.replace(/^DJ\s+/i, ''));
+      const storedNick = localStorage.getItem('syncro_nickname');
+      const storedAvatar = localStorage.getItem('syncro_avatar');
+      if (storedNick) {
+        setNickname(storedNick.replace(/^DJ\s+/i, ''));
+      }
+      if (storedAvatar) {
+        setAvatar(storedAvatar);
+      } else {
+        // Random avatar if none stored
+        setAvatar(AVATARS[Math.floor(Math.random() * AVATARS.length)]);
       }
       setHasInit(true);
     }
@@ -29,18 +40,17 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
     const cleanRoomId = roomId.trim().toLowerCase();
     let cleanNickname = nickname.trim();
     
-    // Automatically make everyone a DJ!
     if (!/^DJ\s/i.test(cleanNickname)) {
       cleanNickname = `DJ ${cleanNickname}`;
     }
     
     if (forcedRoomId) {
       connect();
-      joinRoom(cleanRoomId, cleanNickname);
+      joinRoom(cleanRoomId, cleanNickname, avatar);
     } else {
-      // If we are on the home page, redirect to the room page
       if (typeof window !== 'undefined') {
         localStorage.setItem('syncro_nickname', cleanNickname);
+        localStorage.setItem('syncro_avatar', avatar);
       }
       router.push(`/room/${cleanRoomId}`);
     }
@@ -56,6 +66,40 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-gray-900 p-8 rounded-2xl shadow-2xl border border-gray-800">
+        
+        {/* Avatar Selection */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-400 mb-2 w-full text-left">Your DJ Avatar</label>
+          <div className="relative flex flex-col items-center">
+            <button 
+              type="button"
+              onClick={() => setShowPicker(!showPicker)}
+              className="text-6xl hover:scale-110 transition-transform relative group"
+            >
+              {avatar}
+              <div className="absolute inset-0 rounded-full border-2 border-transparent group-hover:border-cyan-400 opacity-50 transition-colors" />
+            </button>
+            
+            {showPicker && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-2xl z-50 grid grid-cols-6 gap-2 w-64">
+                {AVATARS.map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => {
+                      setAvatar(a);
+                      setShowPicker(false);
+                    }}
+                    className="text-2xl hover:scale-125 transition-transform"
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-400 mb-2">Nickname</label>
           <div className="relative">
