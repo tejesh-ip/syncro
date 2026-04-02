@@ -9,27 +9,28 @@ import { useParams } from 'next/navigation';
 export default function RoomPage() {
   const params = useParams();
   const roomId = params.roomId as string;
-  const { roomState, initSession, nickname, avatar, connect, joinRoom } = useStore();
-  const [mounted, setMounted] = useState(false);
+  const { roomState, initSession, nickname, avatar, isInitialized, connect, joinRoom } = useStore();
 
+  // On mount, hydrate session from localStorage
   useEffect(() => {
     initSession();
   }, [initSession]);
 
+  // Only attempt auto-join once localStorage is fully loaded (isInitialized: true)
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (mounted && nickname && !roomState && roomId) {
+    // We only auto-join if they already have both a nickname AND an avatar from a previous session
+    if (isInitialized && nickname && avatar && !roomState && roomId) {
       connect();
       joinRoom(roomId, nickname, avatar);
     }
-  }, [mounted, nickname, avatar, roomId, connect, joinRoom, roomState]);
+  }, [isInitialized, nickname, avatar, roomId, connect, joinRoom, roomState]);
 
-  if (!mounted) return null;
+  // Don't render anything until we've checked localStorage to prevent UI flashing
+  if (!isInitialized) return null;
 
-  if (!roomState) {
+  // If they are missing either a nickname or an avatar (or haven't joined a room state yet)
+  // Force them to the JoinForm so they can pick their emoji and name
+  if (!roomState || !nickname || !avatar) {
     return <JoinForm forcedRoomId={roomId} />;
   }
 

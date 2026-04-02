@@ -5,6 +5,7 @@ import { RoomState } from '../types';
 interface StoreState {
   socket: Socket | null;
   isConnected: boolean;
+  isInitialized: boolean; // Add initialization flag
   userId: string;
   nickname: string;
   avatar: string;
@@ -32,14 +33,13 @@ const generateUserId = () => {
 export const useStore = create<StoreState>((set, get) => {
   socket.on('connect', () => {
     set({ isConnected: true });
-    // If we reconnect and already have a room, re-join it
     const state = get();
-    if (state.roomState && state.nickname && state.userId) {
+    if (state.roomState && state.nickname && state.userId && state.avatar) {
       socket.emit('join_room', { 
         roomId: state.roomState.id, 
         userId: state.userId, 
         nickname: state.nickname,
-        avatar: state.avatar || '🎧'
+        avatar: state.avatar 
       });
     }
   });
@@ -50,9 +50,10 @@ export const useStore = create<StoreState>((set, get) => {
   return {
     socket,
     isConnected: false,
+    isInitialized: false, // Default
     userId: '',
     nickname: '',
-    avatar: '🎧',
+    avatar: '', // Empty default instead of '🎧'
     roomState: null,
 
     initSession: () => {
@@ -67,7 +68,12 @@ export const useStore = create<StoreState>((set, get) => {
           localStorage.setItem('syncro_userId', storedId);
         }
         
-        set({ userId: storedId, nickname: storedNick || '', avatar: storedAvatar || '🎧' });
+        set({ 
+          userId: storedId, 
+          nickname: storedNick || '', 
+          avatar: storedAvatar || '', // Load stored or empty
+          isInitialized: true // Mark as ready
+        });
       }
     },
 
@@ -84,7 +90,7 @@ export const useStore = create<StoreState>((set, get) => {
       }
       
       const newUserId = get().userId || generateUserId();
-      const finalAvatar = avatar || get().avatar || '🎧';
+      const finalAvatar = avatar || get().avatar || '🎧'; // The only fallback allowed
       
       set({ nickname, avatar: finalAvatar, userId: newUserId });
       if (typeof window !== 'undefined') {
