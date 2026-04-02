@@ -5,11 +5,11 @@ import { useStore } from '../store/useStore';
 import { ClubEnvironment } from './ClubEnvironment';
 import { SearchBox } from './SearchBox';
 import { ProgressBar } from './ProgressBar';
-import { Users, Music, Heart, FastForward } from 'lucide-react';
+import { Users, Music, Heart, FastForward, Volume2, VolumeX } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export const Room = () => {
-  const { roomState, userId, leaveRoom, likeSong, skipSong } = useStore();
+  const { roomState, userId, leaveRoom, likeSong, skipSong, volume, setVolume } = useStore();
   const router = useRouter();
 
   if (!roomState) return null;
