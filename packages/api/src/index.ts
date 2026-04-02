@@ -23,8 +23,16 @@ app.get('/search', async (req, res) => {
       return res.json([]);
     }
     
-    const r = await ytSearch(q);
-    const videos = r.videos.slice(0, 10).map(v => ({
+    // Append "audio" or "song" to highly bias YouTube's search algorithm towards music
+    const searchQuery = `${q} song audio`;
+    const r = await ytSearch(searchQuery);
+    
+    // Filter out obvious non-music videos (e.g. movies, long compilations)
+    // Most standard songs are under 10 minutes (600 seconds)
+    // We'll allow up to 15 minutes (900 seconds) just in case it's a long mix or extended version
+    const musicVideos = r.videos.filter(v => v.seconds < 900);
+    
+    const videos = musicVideos.slice(0, 10).map(v => ({
       videoId: v.videoId,
       title: v.title,
       thumbnail: v.thumbnail,
