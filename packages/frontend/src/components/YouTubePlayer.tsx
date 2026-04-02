@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import YouTube, { YouTubeEvent, YouTubeProps, YouTubePlayer as YTPlayerType } from 'react-youtube';
 import { useStore } from '../store/useStore';
+import { PlayCircle } from 'lucide-react';
 
 export const YouTubePlayer = () => {
   const { roomState, emitSongEnded } = useStore();
   const playerRef = useRef<YTPlayerType | null>(null);
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   const currentSong = roomState?.currentSong;
   const currentSongStartTimestamp = roomState?.currentSongStartTimestamp;
@@ -15,18 +17,32 @@ export const YouTubePlayer = () => {
   const syncPlayer = () => {
     if (!playerRef.current || !currentSongStartTimestamp) return;
     
-    // Calculate how many seconds have passed since the server started this song
-    const elapsedSeconds = (Date.now() - currentSongStartTimestamp) / 1000;
-    const playerTime = playerRef.current.getCurrentTime() || 0;
+    const state = playerRef.current.getPlayerState();
+    
+    // -1: unstarted, 2: paused, 5: cued
+    // If it's stuck in these states while there is an active song, the browser likely blocked autoplay.
+    if (state === 2 || state === -1 || state === 5) {
+      setAutoplayBlocked(true);
+      // We try to force play just in case
+      playerRef.current.playVideo();
+    } else {
+      setAutoplayBlocked(false);
+    }
 
-    // If the client is out of sync by more than 2 seconds, force them to the master clock
-    if (Math.abs(elapsedSeconds - playerTime) > 2) {
-      console.log(`Syncing player. Server elapsed: ${elapsedSeconds}, Client time: ${playerTime}`);
-      playerRef.current.seekTo(elapsedSeconds, true);
+    // Only attempt to seek if we are officially playing or buffering to avoid weird loops
+    if (state === 1 || state === 3) {
+      const elapsedSeconds = (Date.now() - currentSongStartTimestamp) / 1000;
+      const playerTime = playerRef.current.getCurrentTime() || 0;
+
+      // If the client is out of sync by more than 2 seconds, force them to the master clock
+      if (Math.abs(elapsedSeconds - playerTime) > 2) {
+        console.log(`Syncing player. Server elapsed: ${elapsedSeconds}, Client time: ${playerTime}`);
+        playerRef.current.seekTo(elapsedSeconds, true);
+      }
     }
   };
 
-  // Run sync loop every second just in case they fall behind
+  // Run sync loop every second to enforce Master Clock
   useEffect(() => {
     const interval = setInterval(syncPlayer, 1000);
     return () => clearInterval(interval);
@@ -34,29 +50,25 @@ export const YouTubePlayer = () => {
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
-    // Initial sync
-    syncPlayer();
+    // Try to play immediately, interval will catch if it gets blocked
     event.target.playVideo();
+    syncPlayer();
   };
 
   const onStateChange = (event: YouTubeEvent) => {
-    // YouTube Player States:
-    // -1 (unstarted), 0 (ended), 1 (playing), 2 (paused), 3 (buffering), 5 (video cued).
-
     if (event.data === YouTube.PlayerState.ENDED) {
       if (currentSong) {
         emitSongEnded(currentSong.videoId);
       }
     }
 
-    // Ad Mitigation & Un-pause Logic
     if (event.data === YouTube.PlayerState.PLAYING) {
-      // Just came out of buffering or an ad, force a sync check
+      setAutoplayBlocked(false);
       syncPlayer();
     }
 
     if (event.data === YouTube.PlayerState.PAUSED) {
-      // Force play if they somehow managed to pause it
+      setAutoplayBlocked(true);
       event.target.playVideo();
     }
   };
@@ -91,6 +103,27 @@ export const YouTubePlayer = () => {
       */}
       <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }} />
       
+      {/* Autoplay Blocked Overlay - Z-index 20 so it sits above the blocking div */}
+      {autoplayBlocked && (
+        <div 
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-md cursor-pointer transition-opacity"
+          onClick={() => {
+            if (playerRef.current) {
+              playerRef.current.playVideo();
+              setAutoplayBlocked(false);
+            }
+          }}
+        >
+          <div className="flex flex-col items-center bg-gray-900/90 p-8 rounded-2xl border border-gray-700 hover:border-cyan-400 transition-colors shadow-2xl transform hover:scale-105 duration-200">
+            <PlayCircle size={64} className="text-cyan-400 mb-4 animate-pulse" />
+            <h3 className="text-2xl font-bold mb-2">Tap to Sync & Play</h3>
+            <p className="text-sm text-gray-400 text-center max-w-xs">
+              Your browser paused the audio. Click anywhere to sync with the room and continue listening.
+            </p>
+          </div>
+        </div>
+      )}
+
       <YouTube
         videoId={currentSong.videoId}
         opts={opts}
@@ -99,8 +132,6 @@ export const YouTubePlayer = () => {
         className="w-full h-full pointer-events-none" // Extra safety
         iframeClassName="w-full h-full pointer-events-none"
       />
-      
-      {/* Custom UI overlay could go here (e.g., currently playing track info) */}
     </div>
   );
 };
