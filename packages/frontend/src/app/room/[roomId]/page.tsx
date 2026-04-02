@@ -9,7 +9,7 @@ import { useParams } from 'next/navigation';
 export default function RoomPage() {
   const params = useParams();
   const roomId = params.roomId as string;
-  const { roomState, initSession, nickname, connect, joinRoom } = useStore();
+  const { roomState, initSession, nickname, avatar, connect, joinRoom } = useStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -23,9 +23,9 @@ export default function RoomPage() {
   useEffect(() => {
     if (mounted && nickname && !roomState && roomId) {
       connect();
-      joinRoom(roomId, nickname);
+      joinRoom(roomId, nickname, avatar);
     }
-  }, [mounted, nickname, roomId, connect, joinRoom, roomState]);
+  }, [mounted, nickname, avatar, roomId, connect, joinRoom, roomState]);
 
   if (!mounted) return null;
 

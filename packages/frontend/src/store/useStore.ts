@@ -13,7 +13,7 @@ interface StoreState {
   // Actions
   initSession: () => void;
   connect: () => void;
-  joinRoom: (roomId: string, nickname: string, avatar: string) => void;
+  joinRoom: (roomId: string, nickname: string, avatar?: string) => void;
   leaveRoom: () => void;
   addSong: (videoId: string, title: string, duration: number) => void;
   emitSongEnded: (videoId: string) => void;
@@ -77,21 +77,22 @@ export const useStore = create<StoreState>((set, get) => {
       }
     },
 
-    joinRoom: (roomId: string, nickname: string, avatar: string) => {
+    joinRoom: (roomId: string, nickname: string, avatar?: string) => {
       const state = get();
       if (!state.userId) {
         state.initSession(); // Just in case
       }
       
       const newUserId = get().userId || generateUserId();
+      const finalAvatar = avatar || get().avatar || '🎧';
       
-      set({ nickname, avatar, userId: newUserId });
+      set({ nickname, avatar: finalAvatar, userId: newUserId });
       if (typeof window !== 'undefined') {
         localStorage.setItem('syncro_nickname', nickname);
-        localStorage.setItem('syncro_avatar', avatar);
+        localStorage.setItem('syncro_avatar', finalAvatar);
       }
       
-      socket.emit('join_room', { roomId, userId: newUserId, nickname, avatar });
+      socket.emit('join_room', { roomId, userId: newUserId, nickname, avatar: finalAvatar });
     },
 
     leaveRoom: () => {
