@@ -13,6 +13,11 @@ const generateNeonColor = () => {
   return colors[Math.floor(Math.random() * colors.length)];
 };
 
+const generateAvatar = () => {
+  const avatars = ['👾', '👽', '👻', '🤖', '🎃', '🤡', '🤠', '😎', '🤓', '🦊', '🐱', '🐼', '🐯', '🐰'];
+  return avatars[Math.floor(Math.random() * avatars.length)];
+};
+
 export class Room {
   public id: string;
   public users: Map<string, User> = new Map(); // Key is persistent userId
@@ -51,6 +56,7 @@ export class Room {
       socketId,
       nickname,
       color: generateNeonColor(),
+      avatar: generateAvatar(),
       likesReceived: 0,
     };
     

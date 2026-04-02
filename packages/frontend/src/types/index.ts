@@ -3,6 +3,7 @@ export interface User {
   socketId: string;
   nickname: string;
   color: string;
+  avatar: string;
   likesReceived: number;
 }
 

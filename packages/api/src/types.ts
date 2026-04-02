@@ -3,6 +3,7 @@ export interface User {
   socketId: string; // Current Socket ID
   nickname: string;
   color: string; // Used for the UI glowing borders
+  avatar: string; // Emoji representing the user
   likesReceived: number; // Total likes this user's songs have gotten
 }
 
