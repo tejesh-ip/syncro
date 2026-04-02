@@ -10,28 +10,37 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
   const [roomId, setRoomId] = useState(forcedRoomId || '');
   const { connect, joinRoom } = useStore();
   const router = useRouter();
+  const [hasInit, setHasInit] = useState(false);
 
   useEffect(() => {
-    // Pre-fill nickname if it exists in local storage
-    if (typeof window !== 'undefined') {
+    if (!hasInit && typeof window !== 'undefined') {
       const stored = localStorage.getItem('syncro_nickname');
-      if (stored) setNickname(stored);
+      if (stored) {
+        setNickname(stored.replace(/^DJ\s+/i, ''));
+      }
+      setHasInit(true);
     }
-  }, []);
+  }, [hasInit]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname || !roomId) return;
     
     const cleanRoomId = roomId.trim().toLowerCase();
+    let cleanNickname = nickname.trim();
+    
+    // Automatically make everyone a DJ!
+    if (!/^DJ\s/i.test(cleanNickname)) {
+      cleanNickname = `DJ ${cleanNickname}`;
+    }
     
     if (forcedRoomId) {
       connect();
-      joinRoom(cleanRoomId, nickname.trim());
+      joinRoom(cleanRoomId, cleanNickname);
     } else {
       // If we are on the home page, redirect to the room page
       if (typeof window !== 'undefined') {
-        localStorage.setItem('syncro_nickname', nickname.trim());
+        localStorage.setItem('syncro_nickname', cleanNickname);
       }
       router.push(`/room/${cleanRoomId}`);
     }
@@ -49,14 +58,17 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
       <form onSubmit={handleSubmit} className="w-full max-w-sm bg-gray-900 p-8 rounded-2xl shadow-2xl border border-gray-800">
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-400 mb-2">Nickname</label>
-          <input
-            type="text"
-            required
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-colors"
-            placeholder="DJ Phantom"
-          />
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">DJ</span>
+            <input
+              type="text"
+              required
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition-colors"
+              placeholder="Phantom"
+            />
+          </div>
         </div>
         
         <div className="mb-8">

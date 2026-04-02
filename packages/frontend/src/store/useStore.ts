@@ -56,7 +56,7 @@ export const useStore = create<StoreState>((set, get) => {
       // Restore from localStorage or create new
       if (typeof window !== 'undefined') {
         let storedId = localStorage.getItem('syncro_userId');
-        let storedNick = localStorage.getItem('syncro_nickname');
+        const storedNick = localStorage.getItem('syncro_nickname');
         
         if (!storedId) {
           storedId = generateUserId();

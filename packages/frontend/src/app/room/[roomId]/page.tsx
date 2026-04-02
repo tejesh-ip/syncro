@@ -14,8 +14,11 @@ export default function RoomPage() {
 
   useEffect(() => {
     initSession();
-    setMounted(true);
   }, [initSession]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (mounted && nickname && !roomState && roomId) {

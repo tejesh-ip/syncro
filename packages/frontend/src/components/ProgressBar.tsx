@@ -17,19 +17,21 @@ export const ProgressBar = () => {
   const startTs = roomState?.currentSongStartTimestamp;
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+
     if (!currentSong || !startTs) {
-      setElapsed(0);
-      return;
+      if (elapsed !== 0) setElapsed(0);
+    } else {
+      interval = setInterval(() => {
+        const now = Date.now();
+        setElapsed(Math.max(0, (now - startTs) / 1000));
+      }, 100);
     }
 
-    // Update the progress bar every 100ms for smooth sliding
-    const interval = setInterval(() => {
-      const now = Date.now();
-      setElapsed(Math.max(0, (now - startTs) / 1000));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [currentSong, startTs]);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentSong, startTs, elapsed]);
 
   if (!currentSong) return null;
 

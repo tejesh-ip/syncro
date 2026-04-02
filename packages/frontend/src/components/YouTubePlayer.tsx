@@ -13,46 +13,36 @@ export const YouTubePlayer = () => {
   const currentSong = roomState?.currentSong;
   const currentSongStartTimestamp = roomState?.currentSongStartTimestamp;
 
-  // The Master Clock Sync Logic
-  const syncPlayer = () => {
-    if (!playerRef.current || !currentSongStartTimestamp) return;
-    
-    const state = playerRef.current.getPlayerState();
-    
-    // -1: unstarted, 2: paused, 5: cued
-    // If it's stuck in these states while there is an active song, the browser likely blocked autoplay.
-    if (state === 2 || state === -1 || state === 5) {
-      setAutoplayBlocked(true);
-      // We try to force play just in case
-      playerRef.current.playVideo();
-    } else {
-      setAutoplayBlocked(false);
-    }
-
-    // Only attempt to seek if we are officially playing or buffering to avoid weird loops
-    if (state === 1 || state === 3) {
-      const elapsedSeconds = (Date.now() - currentSongStartTimestamp) / 1000;
-      const playerTime = playerRef.current.getCurrentTime() || 0;
-
-      // If the client is out of sync by more than 2 seconds, force them to the master clock
-      if (Math.abs(elapsedSeconds - playerTime) > 2) {
-        console.log(`Syncing player. Server elapsed: ${elapsedSeconds}, Client time: ${playerTime}`);
-        playerRef.current.seekTo(elapsedSeconds, true);
-      }
-    }
-  };
-
   // Run sync loop every second to enforce Master Clock
   useEffect(() => {
-    const interval = setInterval(syncPlayer, 1000);
+    const interval = setInterval(() => {
+      // Need a stable reference to syncPlayer to avoid linting warnings
+      if (!playerRef.current || !currentSongStartTimestamp) return;
+    
+      const state = playerRef.current.getPlayerState();
+      
+      if (state === 2 || state === -1 || state === 5) {
+        setAutoplayBlocked(true);
+        playerRef.current.playVideo();
+      } else {
+        setAutoplayBlocked(false);
+      }
+
+      if (state === 1 || state === 3) {
+        const elapsedSeconds = (Date.now() - currentSongStartTimestamp) / 1000;
+        const playerTime = playerRef.current.getCurrentTime() || 0;
+
+        if (Math.abs(elapsedSeconds - playerTime) > 2) {
+          playerRef.current.seekTo(elapsedSeconds, true);
+        }
+      }
+    }, 1000);
     return () => clearInterval(interval);
   }, [currentSongStartTimestamp]);
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
-    // Try to play immediately, interval will catch if it gets blocked
     event.target.playVideo();
-    syncPlayer();
   };
 
   const onStateChange = (event: YouTubeEvent) => {
@@ -64,7 +54,6 @@ export const YouTubePlayer = () => {
 
     if (event.data === YouTube.PlayerState.PLAYING) {
       setAutoplayBlocked(false);
-      syncPlayer();
     }
 
     if (event.data === YouTube.PlayerState.PAUSED) {

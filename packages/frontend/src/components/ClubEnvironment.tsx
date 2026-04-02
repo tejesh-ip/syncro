@@ -55,7 +55,7 @@ export const ClubEnvironment = () => {
               className="absolute -top-8 whitespace-nowrap px-3 py-1 bg-black/90 rounded-full border text-xs font-bold"
               style={{ borderColor: djUser.color, color: djUser.color, boxShadow: `0 0 10px ${djUser.color}40` }}
             >
-              👑 DJ {djUser.nickname}
+              👑 {djUser.nickname}
             </div>
             
             <div 
