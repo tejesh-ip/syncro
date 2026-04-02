@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 
 const formatTime = (seconds: number) => {
@@ -11,41 +11,64 @@ const formatTime = (seconds: number) => {
 
 export const ProgressBar = () => {
   const { roomState } = useStore();
-  const [elapsed, setElapsed] = useState(0);
-
+  
   const currentSong = roomState?.currentSong;
   const startTs = roomState?.currentSongStartTimestamp;
 
+  const barRef = useRef<HTMLDivElement>(null);
+  const timeRef = useRef<HTMLSpanElement>(null);
+
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let animationFrameId: number;
 
     if (!currentSong || !startTs) {
-      if (elapsed !== 0) setElapsed(0);
-    } else {
-      interval = setInterval(() => {
-        const now = Date.now();
-        setElapsed(Math.max(0, (now - startTs) / 1000));
-      }, 100);
+      if (barRef.current) barRef.current.style.width = '0%';
+      if (timeRef.current) timeRef.current.textContent = '0:00';
+      return;
     }
 
-    return () => {
-      if (interval) clearInterval(interval);
+    const duration = currentSong.duration || 0;
+
+    const updateProgress = () => {
+      const now = Date.now();
+      const elapsed = Math.max(0, (now - startTs) / 1000);
+      
+      if (barRef.current && duration > 0) {
+        const percent = Math.min(100, (elapsed / duration) * 100);
+        barRef.current.style.width = `${percent}%`;
+      }
+      
+      if (timeRef.current) {
+        timeRef.current.textContent = formatTime(elapsed);
+      }
+
+      if (elapsed <= duration) {
+        animationFrameId = requestAnimationFrame(updateProgress);
+      }
     };
-  }, [currentSong, startTs, elapsed]);
+
+    animationFrameId = requestAnimationFrame(updateProgress);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [currentSong, startTs]);
 
   if (!currentSong) return null;
 
   const duration = currentSong.duration || 0;
-  const progressPercent = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
 
   return (
     <div className="w-full flex items-center gap-3 mt-4">
-      <span className="text-xs text-gray-400 font-mono w-10 text-right">{formatTime(elapsed)}</span>
+      <span ref={timeRef} className="text-xs text-gray-400 font-mono w-10 text-right">
+        0:00
+      </span>
       
       <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
         <div 
-          className="h-full bg-cyan-400 transition-all duration-100 ease-linear shadow-[0_0_10px_rgba(34,211,238,0.5)]" 
-          style={{ width: `${progressPercent}%` }}
+          ref={barRef}
+          className="h-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)] transition-none" 
+          style={{ width: '0%' }}
         />
       </div>
       

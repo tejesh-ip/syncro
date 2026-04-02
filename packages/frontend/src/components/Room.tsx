@@ -84,33 +84,51 @@ export const Room = () => {
                 </div>
 
                 {roomState.currentSong && (
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <button 
-                      onClick={likeSong}
-                      disabled={hasLiked}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                        hasLiked 
-                          ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-400 cursor-default' 
-                          : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
-                      }`}
-                    >
-                      <Heart size={18} className={hasLiked ? 'fill-current' : ''} />
-                      <span>{roomState.currentSongLikes.length}</span>
-                    </button>
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-4 flex-shrink-0">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-800/50 rounded-full border border-gray-700">
+                      {volume === 0 ? (
+                        <VolumeX size={16} className="text-gray-400" />
+                      ) : (
+                        <Volume2 size={16} className="text-cyan-400" />
+                      )}
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value={volume}
+                        onChange={(e) => setVolume(Number(e.target.value))}
+                        className="w-20 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                      />
+                    </div>
 
-                    <button 
-                      onClick={skipSong}
-                      disabled={hasSkipped}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                        hasSkipped 
-                          ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 cursor-default' 
-                          : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
-                      }`}
-                      title={`Skip requires ${skipThreshold} votes`}
-                    >
-                      <FastForward size={18} className={hasSkipped ? 'fill-current' : ''} />
-                      <span>{roomState.currentSongSkips.length} / {skipThreshold}</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={likeSong}
+                        disabled={hasLiked}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                          hasLiked 
+                            ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-400 cursor-default' 
+                            : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
+                        }`}
+                      >
+                        <Heart size={18} className={hasLiked ? 'fill-current' : ''} />
+                        <span>{roomState.currentSongLikes.length}</span>
+                      </button>
+
+                      <button 
+                        onClick={skipSong}
+                        disabled={hasSkipped}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                          hasSkipped 
+                            ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 cursor-default' 
+                            : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
+                        }`}
+                        title={`Skip requires ${skipThreshold} votes`}
+                      >
+                        <FastForward size={18} className={hasSkipped ? 'fill-current' : ''} />
+                        <span>{roomState.currentSongSkips.length} / {skipThreshold}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

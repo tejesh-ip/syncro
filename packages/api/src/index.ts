@@ -16,13 +16,26 @@ const io = new Server(server, {
   },
 });
 
+const searchCache = new Map<string, { data: any[], expiresAt: number }>();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 app.get('/search', async (req, res) => {
   try {
-    const q = req.query.q as string;
-    if (!q) {
+    const rawQuery = req.query.q as string;
+    if (!rawQuery) {
       return res.json([]);
     }
     
+    const q = rawQuery.trim().toLowerCase();
+    
+    // Check Cache
+    if (searchCache.has(q)) {
+      const cached = searchCache.get(q)!;
+      if (Date.now() < cached.expiresAt) {
+        return res.json(cached.data);
+      }
+    }
+
     // Append "audio" or "song" to highly bias YouTube's search algorithm towards music
     const searchQuery = `${q} song audio`;
     const r = await ytSearch(searchQuery);
@@ -40,6 +53,9 @@ app.get('/search', async (req, res) => {
       timestamp: v.timestamp,
       duration: v.seconds // Add duration in seconds
     }));
+    
+    // Save to Cache
+    searchCache.set(q, { data: videos, expiresAt: Date.now() + CACHE_TTL });
     
     res.json(videos);
   } catch (error) {

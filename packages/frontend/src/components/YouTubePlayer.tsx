@@ -6,12 +6,19 @@ import { useStore } from '../store/useStore';
 import { PlayCircle } from 'lucide-react';
 
 export const YouTubePlayer = () => {
-  const { roomState, emitSongEnded } = useStore();
+  const { roomState, emitSongEnded, volume } = useStore();
   const playerRef = useRef<YTPlayerType | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
 
   const currentSong = roomState?.currentSong;
   const currentSongStartTimestamp = roomState?.currentSongStartTimestamp;
+
+  // React to Volume Changes
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === 'function') {
+      playerRef.current.setVolume(volume);
+    }
+  }, [volume]);
 
   // Run sync loop every second to enforce Master Clock
   useEffect(() => {
@@ -42,6 +49,9 @@ export const YouTubePlayer = () => {
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
+    if (typeof event.target.setVolume === 'function') {
+      event.target.setVolume(volume);
+    }
     event.target.playVideo();
   };
 

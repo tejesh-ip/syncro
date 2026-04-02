@@ -1,12 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { YouTubePlayer } from './YouTubePlayer';
 import { motion } from 'framer-motion';
 
 export const ClubEnvironment = () => {
   const { roomState } = useStore();
+  const [isVisible, setIsVisible] = useState(true);
+
+  // Pause animations when the tab is hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsVisible(document.visibilityState === 'visible');
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   if (!roomState) return null;
 
@@ -17,7 +30,7 @@ export const ClubEnvironment = () => {
     : null;
 
   const crowd = roomState.users.filter(u => u.id !== djUser?.id);
-  const isPlaying = !!currentSong;
+  const isPlaying = !!currentSong && isVisible;
 
   return (
     <div className="relative w-full h-[600px] bg-black rounded-xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,0.8)] border border-gray-800 perspective-[1200px] flex flex-col items-center">

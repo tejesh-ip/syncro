@@ -10,6 +10,7 @@ interface StoreState {
   nickname: string;
   avatar: string;
   roomState: RoomState | null;
+  volume: number;
   
   // Actions
   initSession: () => void;
@@ -20,6 +21,7 @@ interface StoreState {
   emitSongEnded: (videoId: string) => void;
   likeSong: () => void;
   skipSong: () => void;
+  setVolume: (v: number) => void;
 }
 
 const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001', {
@@ -55,6 +57,9 @@ export const useStore = create<StoreState>((set, get) => {
     nickname: '',
     avatar: '', // Empty default instead of '🎧'
     roomState: null,
+    volume: 100,
+
+    setVolume: (v: number) => set({ volume: v }),
 
     initSession: () => {
       // Restore from localStorage or create new
