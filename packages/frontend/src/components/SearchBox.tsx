@@ -10,6 +10,7 @@ interface SearchResult {
   thumbnail: string;
   author: string;
   timestamp: string;
+  duration: number; // Added duration
 }
 
 export const SearchBox = () => {
@@ -59,7 +60,7 @@ export const SearchBox = () => {
   }, []);
 
   const handleAdd = (video: SearchResult) => {
-    addSong(video.videoId, video.title);
+    addSong(video.videoId, video.title, video.duration);
     setIsOpen(false);
     setQuery('');
   };

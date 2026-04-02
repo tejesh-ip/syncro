@@ -92,7 +92,7 @@ export class Room {
     }
   }
 
-  public addSong(userId: string, videoId: string, title: string): Song {
+  public addSong(userId: string, videoId: string, title: string, duration?: number): Song {
     const user = this.users.get(userId);
     if (!user) throw new Error("User not found");
 
@@ -100,6 +100,7 @@ export class Room {
       id: Math.random().toString(36).substring(2, 10),
       videoId,
       title,
+      duration,
       addedBy: user.id,
       addedByName: user.nickname,
       userColor: user.color,

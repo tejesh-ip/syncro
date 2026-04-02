@@ -14,7 +14,7 @@ interface StoreState {
   connect: () => void;
   joinRoom: (roomId: string, nickname: string) => void;
   leaveRoom: () => void;
-  addSong: (videoId: string, title: string) => void;
+  addSong: (videoId: string, title: string, duration: number) => void;
   emitSongEnded: (videoId: string) => void;
   likeSong: () => void;
   skipSong: () => void;
@@ -94,8 +94,8 @@ export const useStore = create<StoreState>((set, get) => {
       set({ roomState: null });
     },
 
-    addSong: (videoId: string, title: string) => {
-      socket.emit('add_song', { videoId, title });
+    addSong: (videoId: string, title: string, duration: number) => {
+      socket.emit('add_song', { videoId, title, duration });
     },
 
     emitSongEnded: (videoId: string) => {

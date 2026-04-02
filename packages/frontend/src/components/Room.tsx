@@ -4,6 +4,7 @@ import React from 'react';
 import { useStore } from '../store/useStore';
 import { YouTubePlayer } from './YouTubePlayer';
 import { SearchBox } from './SearchBox';
+import { ProgressBar } from './ProgressBar';
 import { Users, Music, Heart, FastForward } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -55,54 +56,59 @@ export const Room = () => {
             <YouTubePlayer />
           </div>
           
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 flex-1 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
-                <Music className="text-fuchsia-400" />
-                Now Playing
-              </h2>
-              {roomState.currentSong ? (
-                <div>
-                  <p className="text-2xl font-bold truncate">{roomState.currentSong.title}</p>
-                  <p className="text-gray-400 mt-1">
-                    Added by <span className="text-white font-medium" style={{ color: roomState.currentSong.userColor }}>{roomState.currentSong.addedByName}</span>
-                  </p>
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 flex-1 flex flex-col justify-between items-start gap-4">
+            <div className="flex flex-col sm:flex-row justify-between w-full items-start sm:items-center gap-4">
+              <div className="min-w-0 flex-1 pr-4">
+                <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+                  <Music className="text-fuchsia-400" />
+                  Now Playing
+                </h2>
+                {roomState.currentSong ? (
+                  <div>
+                    <p className="text-2xl font-bold truncate">{roomState.currentSong.title}</p>
+                    <p className="text-gray-400 mt-1">
+                      Added by <span className="text-white font-medium" style={{ color: roomState.currentSong.userColor }}>{roomState.currentSong.addedByName}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Nothing playing. Be the DJ.</p>
+                )}
+              </div>
+
+              {roomState.currentSong && (
+                <div className="flex items-center gap-3 flex-shrink-0">
+                  <button 
+                    onClick={likeSong}
+                    disabled={hasLiked}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                      hasLiked 
+                        ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-400 cursor-default' 
+                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
+                    }`}
+                  >
+                    <Heart size={18} className={hasLiked ? 'fill-current' : ''} />
+                    <span>{roomState.currentSongLikes.length}</span>
+                  </button>
+
+                  <button 
+                    onClick={skipSong}
+                    disabled={hasSkipped}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
+                      hasSkipped 
+                        ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 cursor-default' 
+                        : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
+                    }`}
+                    title={`Skip requires ${skipThreshold} votes`}
+                  >
+                    <FastForward size={18} className={hasSkipped ? 'fill-current' : ''} />
+                    <span>{roomState.currentSongSkips.length} / {skipThreshold}</span>
+                  </button>
                 </div>
-              ) : (
-                <p className="text-gray-500">Nothing playing. Be the DJ.</p>
               )}
             </div>
 
-            {roomState.currentSong && (
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={likeSong}
-                  disabled={hasLiked}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                    hasLiked 
-                      ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-400 cursor-default' 
-                      : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
-                  }`}
-                >
-                  <Heart size={18} className={hasLiked ? 'fill-current' : ''} />
-                  <span>{roomState.currentSongLikes.length}</span>
-                </button>
-
-                <button 
-                  onClick={skipSong}
-                  disabled={hasSkipped}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all ${
-                    hasSkipped 
-                      ? 'bg-orange-500/20 border-orange-500/50 text-orange-400 cursor-default' 
-                      : 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-white'
-                  }`}
-                  title={`Skip requires ${skipThreshold} votes`}
-                >
-                  <FastForward size={18} className={hasSkipped ? 'fill-current' : ''} />
-                  <span>{roomState.currentSongSkips.length} / {skipThreshold}</span>
-                </button>
-              </div>
-            )}
+            {/* Injected the Custom Progress Bar Here */}
+            {roomState.currentSong && <ProgressBar />}
           </div>
         </div>
 

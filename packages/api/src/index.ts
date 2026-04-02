@@ -29,7 +29,8 @@ app.get('/search', async (req, res) => {
       title: v.title,
       thumbnail: v.thumbnail,
       author: v.author.name,
-      timestamp: v.timestamp
+      timestamp: v.timestamp,
+      duration: v.seconds // Add duration in seconds
     }));
     
     res.json(videos);
@@ -80,7 +81,7 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('room_state', room.getState());
   });
 
-  socket.on('add_song', ({ videoId, title }) => {
+  socket.on('add_song', ({ videoId, title, duration }) => {
     const roomId = socketRoomMap.get(socket.id);
     const userId = socketUserMap.get(socket.id);
     if (!roomId || !userId) return;
@@ -88,7 +89,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
-    room.addSong(userId, videoId, title);
+    room.addSong(userId, videoId, title, duration);
 
     if (!room.currentSong) {
       room.nextSong();
