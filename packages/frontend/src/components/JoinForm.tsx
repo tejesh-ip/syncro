@@ -1,19 +1,40 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { PlayCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
-export const JoinForm = () => {
+export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
   const [nickname, setNickname] = useState('');
-  const [roomId, setRoomId] = useState('');
+  const [roomId, setRoomId] = useState(forcedRoomId || '');
   const { connect, joinRoom } = useStore();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Pre-fill nickname if it exists in local storage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('syncro_nickname');
+      if (stored) setNickname(stored);
+    }
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname || !roomId) return;
-    connect();
-    joinRoom(roomId.trim().toLowerCase(), nickname.trim());
+    
+    const cleanRoomId = roomId.trim().toLowerCase();
+    
+    if (forcedRoomId) {
+      connect();
+      joinRoom(cleanRoomId, nickname.trim());
+    } else {
+      // If we are on the home page, redirect to the room page
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('syncro_nickname', nickname.trim());
+      }
+      router.push(`/room/${cleanRoomId}`);
+    }
   };
 
   return (
@@ -43,9 +64,10 @@ export const JoinForm = () => {
           <input
             type="text"
             required
+            disabled={!!forcedRoomId}
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
-            className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors uppercase"
+            className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-colors uppercase disabled:opacity-50 disabled:cursor-not-allowed"
             placeholder="NIGHTCLUB"
           />
         </div>
@@ -55,7 +77,7 @@ export const JoinForm = () => {
           className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-95"
         >
           <PlayCircle size={20} />
-          Enter Room
+          {forcedRoomId ? 'Join Room' : 'Enter Room'}
         </button>
       </form>
     </div>

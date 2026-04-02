@@ -16,7 +16,6 @@ const io = new Server(server, {
   },
 });
 
-// HTTP endpoint for YouTube Search
 app.get('/search', async (req, res) => {
   try {
     const q = req.query.q as string;
@@ -25,13 +24,12 @@ app.get('/search', async (req, res) => {
     }
     
     const r = await ytSearch(q);
-    // Return top 10 results
     const videos = r.videos.slice(0, 10).map(v => ({
       videoId: v.videoId,
       title: v.title,
       thumbnail: v.thumbnail,
       author: v.author.name,
-      timestamp: v.timestamp // e.g. "4:30"
+      timestamp: v.timestamp
     }));
     
     res.json(videos);
@@ -41,56 +39,57 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// In-memory store for rooms
 const rooms = new Map<string, Room>();
-
-// Track which socket is in which room to handle disconnects cleanly
 const socketRoomMap = new Map<string, string>();
+const socketUserMap = new Map<string, string>(); // socket.id -> userId
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // 1. Join Room
-  socket.on('join_room', ({ roomId, nickname }) => {
-    // Leave current room if already in one
+  socket.on('join_room', ({ roomId, userId, nickname }) => {
+    // Basic cleanup of previous room if needed
     const currentRoomId = socketRoomMap.get(socket.id);
     if (currentRoomId) {
       socket.leave(currentRoomId);
       const oldRoom = rooms.get(currentRoomId);
       if (oldRoom) {
-        oldRoom.removeUser(socket.id);
+        oldRoom.removeUserBySocketId(socket.id);
         io.to(currentRoomId).emit('room_state', oldRoom.getState());
       }
     }
 
-    // Create room if it doesn't exist
     if (!rooms.has(roomId)) {
       rooms.set(roomId, new Room(roomId));
     }
 
     const room = rooms.get(roomId)!;
-    room.addUser(socket.id, nickname);
+    
+    // Clear the destruction timer if it exists because someone joined!
+    if (room.destroyTimer) {
+      clearTimeout(room.destroyTimer);
+      room.destroyTimer = null;
+    }
+
+    room.addUser(userId, socket.id, nickname);
     
     socket.join(roomId);
     socketRoomMap.set(socket.id, roomId);
+    socketUserMap.set(socket.id, userId);
 
-    console.log(`${nickname} joined room ${roomId}`);
-
-    // Broadcast updated state to everyone in the room
+    console.log(`${nickname} (${userId}) joined room ${roomId}`);
     io.to(roomId).emit('room_state', room.getState());
   });
 
-  // 2. Add Song
   socket.on('add_song', ({ videoId, title }) => {
     const roomId = socketRoomMap.get(socket.id);
-    if (!roomId) return;
+    const userId = socketUserMap.get(socket.id);
+    if (!roomId || !userId) return;
 
     const room = rooms.get(roomId);
     if (!room) return;
 
-    room.addSong(socket.id, videoId, title);
+    room.addSong(userId, videoId, title);
 
-    // If nothing is playing, start playing immediately!
     if (!room.currentSong) {
       room.nextSong();
     }
@@ -98,9 +97,31 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('room_state', room.getState());
   });
 
-  // 3. Next Song (Triggered by a client when their song finishes)
-  // To prevent multiple clients firing this at the same time and skipping 2 songs,
-  // we could require the client to pass the videoId they just finished.
+  socket.on('like_song', () => {
+    const roomId = socketRoomMap.get(socket.id);
+    const userId = socketUserMap.get(socket.id);
+    if (!roomId || !userId) return;
+
+    const room = rooms.get(roomId);
+    if (room) {
+      room.likeSong(userId);
+      io.to(roomId).emit('room_state', room.getState());
+    }
+  });
+
+  socket.on('skip_song', () => {
+    const roomId = socketRoomMap.get(socket.id);
+    const userId = socketUserMap.get(socket.id);
+    if (!roomId || !userId) return;
+
+    const room = rooms.get(roomId);
+    if (room) {
+      room.skipSong(userId);
+      // Whether it skipped or just recorded the vote, broadcast state
+      io.to(roomId).emit('room_state', room.getState());
+    }
+  });
+
   socket.on('song_ended', ({ videoId }) => {
     const roomId = socketRoomMap.get(socket.id);
     if (!roomId) return;
@@ -108,37 +129,38 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room) return;
 
-    // Only skip if the song that ended is actually the current song
     if (room.currentSong && room.currentSong.videoId === videoId) {
       room.nextSong();
       io.to(roomId).emit('room_state', room.getState());
     }
   });
 
-  // 4. Disconnect Handling
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     const roomId = socketRoomMap.get(socket.id);
     if (roomId) {
       const room = rooms.get(roomId);
       if (room) {
-        room.removeUser(socket.id);
+        room.removeUserBySocketId(socket.id);
         
-        // Clean up empty rooms
         if (room.users.size === 0) {
-          console.log(`Room ${roomId} is empty. Destroying.`);
-          rooms.delete(roomId);
+          // Grace period: Give users 10 seconds to reconnect before wiping the room
+          console.log(`Room ${roomId} is empty. Starting 10s destruction timer.`);
+          room.destroyTimer = setTimeout(() => {
+            console.log(`Destroying room ${roomId}.`);
+            rooms.delete(roomId);
+          }, 10000);
         } else {
           io.to(roomId).emit('room_state', room.getState());
         }
       }
       socketRoomMap.delete(socket.id);
+      socketUserMap.delete(socket.id);
     }
   });
 });
 
 const PORT = process.env.PORT || 3001;
-
 server.listen(PORT, () => {
   console.log(`Syncro API running on port ${PORT}`);
 });

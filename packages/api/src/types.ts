@@ -1,7 +1,9 @@
 export interface User {
-  id: string; // Socket ID
+  id: string; // Persistent User ID (from localStorage)
+  socketId: string; // Current Socket ID
   nickname: string;
   color: string; // Used for the UI glowing borders
+  likesReceived: number; // Total likes this user's songs have gotten
 }
 
 export interface Song {
@@ -20,4 +22,6 @@ export interface RoomState {
   currentSong: Song | null;
   currentSongStartTimestamp: number | null;
   queue: Song[]; // The pre-computed flat list of the round-robin queue
+  currentSongLikes: string[]; // Array of User IDs who liked
+  currentSongSkips: string[]; // Array of User IDs who voted to skip
 }

@@ -1,16 +1,16 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { JoinForm } from '../components/JoinForm';
-import { Room } from '../components/Room';
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
-  const { roomState } = useStore();
+  const { initSession } = useStore();
 
-  // Simple router based on global state
-  if (roomState) {
-    return <Room />;
-  }
+  useEffect(() => {
+    initSession();
+  }, [initSession]);
 
   return <JoinForm />;
 }

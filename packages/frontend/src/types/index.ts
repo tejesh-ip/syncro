@@ -1,7 +1,9 @@
 export interface User {
-  id: string; // Socket ID
+  id: string; // Persistent User ID
+  socketId: string;
   nickname: string;
   color: string;
+  likesReceived: number;
 }
 
 export interface Song {
@@ -20,4 +22,6 @@ export interface RoomState {
   currentSong: Song | null;
   currentSongStartTimestamp: number | null;
   queue: Song[];
+  currentSongLikes: string[];
+  currentSongSkips: string[];
 }

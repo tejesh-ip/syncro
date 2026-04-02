@@ -9,3 +9,24 @@ node_modules/
 out/
 build/
 coverage/
+
+# ── GSD baseline (auto-generated) ──
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+*.code-workspace
+.env.*
+!.env.example
+dist/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+*.log
+.cache/
+tmp/

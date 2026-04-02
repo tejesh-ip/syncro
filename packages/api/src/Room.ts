@@ -15,7 +15,7 @@ const generateNeonColor = () => {
 
 export class Room {
   public id: string;
-  public users: Map<string, User> = new Map();
+  public users: Map<string, User> = new Map(); // Key is persistent userId
   
   // A map of userId -> array of their queued songs
   public userQueues: Map<string, Song[]> = new Map();
@@ -27,44 +27,73 @@ export class Room {
   public currentSong: Song | null = null;
   public currentSongStartTimestamp: number | null = null;
 
+  // Voting
+  public currentSongLikes: Set<string> = new Set();
+  public currentSongSkips: Set<string> = new Set();
+
+  public destroyTimer: NodeJS.Timeout | null = null;
+
   constructor(id: string) {
     this.id = id;
   }
 
-  public addUser(socketId: string, nickname: string): User {
+  public addUser(userId: string, socketId: string, nickname: string): User {
+    // If user already exists (e.g. reconnecting), just update their socketId
+    if (this.users.has(userId)) {
+      const existingUser = this.users.get(userId)!;
+      existingUser.socketId = socketId;
+      existingUser.nickname = nickname; // In case they changed it
+      return existingUser;
+    }
+
     const user: User = {
-      id: socketId,
+      id: userId,
+      socketId,
       nickname,
       color: generateNeonColor(),
+      likesReceived: 0,
     };
     
-    this.users.set(socketId, user);
-    if (!this.userTurnOrder.includes(socketId)) {
-      this.userTurnOrder.push(socketId);
+    this.users.set(userId, user);
+    if (!this.userTurnOrder.includes(userId)) {
+      this.userTurnOrder.push(userId);
     }
-    if (!this.userQueues.has(socketId)) {
-      this.userQueues.set(socketId, []);
+    if (!this.userQueues.has(userId)) {
+      this.userQueues.set(userId, []);
     }
     return user;
   }
 
-  public removeUser(socketId: string) {
-    this.users.delete(socketId);
-    
-    // Note: We deliberately KEEP their songs in the queue if they disconnect, 
-    // or we could clear them. For this MVP, let's remove their unplayed songs
-    // so we don't play songs for someone who isn't there.
-    this.userQueues.delete(socketId);
-    this.userTurnOrder = this.userTurnOrder.filter(id => id !== socketId);
-    
-    // Adjust turn index if out of bounds
-    if (this.currentTurnIndex >= this.userTurnOrder.length) {
-      this.currentTurnIndex = 0;
+  public removeUserBySocketId(socketId: string) {
+    // Find the user with this socketId
+    let targetUserId: string | null = null;
+    for (const [userId, user] of this.users.entries()) {
+      if (user.socketId === socketId) {
+        targetUserId = userId;
+        break;
+      }
+    }
+
+    if (targetUserId) {
+      this.users.delete(targetUserId);
+      // Remove from turn order
+      this.userTurnOrder = this.userTurnOrder.filter(id => id !== targetUserId);
+      // If we want to clear their queue when they leave:
+      this.userQueues.delete(targetUserId);
+      
+      // Adjust turn index if out of bounds
+      if (this.currentTurnIndex >= this.userTurnOrder.length) {
+        this.currentTurnIndex = 0;
+      }
+
+      // Remove their votes
+      this.currentSongLikes.delete(targetUserId);
+      this.currentSongSkips.delete(targetUserId);
     }
   }
 
-  public addSong(socketId: string, videoId: string, title: string): Song {
-    const user = this.users.get(socketId);
+  public addSong(userId: string, videoId: string, title: string): Song {
+    const user = this.users.get(userId);
     if (!user) throw new Error("User not found");
 
     const song: Song = {
@@ -76,20 +105,18 @@ export class Room {
       userColor: user.color,
     };
 
-    const q = this.userQueues.get(socketId) || [];
+    const q = this.userQueues.get(userId) || [];
     q.push(song);
-    this.userQueues.set(socketId, q);
+    this.userQueues.set(userId, q);
 
     return song;
   }
 
   // The core round-robin algorithm
-  // Calculates the flattened upcoming queue based on user turns
   public getComputedQueue(): Song[] {
     const flatQueue: Song[] = [];
     if (this.userTurnOrder.length === 0) return flatQueue;
 
-    // Clone the queues so we can destructively compute the order
     const tempQueues = new Map<string, Song[]>();
     for (const [userId, songs] of this.userQueues.entries()) {
       tempQueues.set(userId, [...songs]);
@@ -102,7 +129,6 @@ export class Room {
       songsRemaining = false;
       let addedInThisRound = false;
 
-      // Do a full pass over all users starting from current tempIndex
       for (let i = 0; i < this.userTurnOrder.length; i++) {
         const userIdx = (tempIndex + i) % this.userTurnOrder.length;
         const userId = this.userTurnOrder[userIdx];
@@ -115,7 +141,6 @@ export class Room {
         }
       }
 
-      // If we made a full pass and no one had songs, we're done
       if (!addedInThisRound) break;
     }
 
@@ -123,18 +148,20 @@ export class Room {
   }
 
   public nextSong(): Song | null {
+    // Reset votes for the new song
+    this.currentSongLikes.clear();
+    this.currentSongSkips.clear();
+
     if (this.userTurnOrder.length === 0) {
       this.clearCurrentSong();
       return null;
     }
 
-    // Try to find the next person with a song
     let loops = 0;
     while (loops < this.userTurnOrder.length) {
       const userId = this.userTurnOrder[this.currentTurnIndex];
       const userQ = this.userQueues.get(userId);
 
-      // Advance turn index for the NEXT time we call nextSong
       this.currentTurnIndex = (this.currentTurnIndex + 1) % this.userTurnOrder.length;
 
       if (userQ && userQ.length > 0) {
@@ -146,7 +173,6 @@ export class Room {
       loops++;
     }
 
-    // If we get here, no one had any songs
     this.clearCurrentSong();
     return null;
   }
@@ -156,6 +182,39 @@ export class Room {
     this.currentSongStartTimestamp = null;
   }
 
+  // Voting Logic
+  public likeSong(userId: string) {
+    if (!this.currentSong) return;
+    
+    // If they haven't liked it yet
+    if (!this.currentSongLikes.has(userId)) {
+      this.currentSongLikes.add(userId);
+      
+      // Credit the DJ who added the song
+      const dj = this.users.get(this.currentSong.addedBy);
+      if (dj) {
+        dj.likesReceived += 1;
+      }
+    }
+  }
+
+  public skipSong(userId: string): boolean {
+    if (!this.currentSong) return false;
+    
+    this.currentSongSkips.add(userId);
+    
+    // Check threshold (3, or number of users if less than 3)
+    const activeUsers = this.users.size;
+    const threshold = Math.min(3, activeUsers);
+    
+    if (this.currentSongSkips.size >= threshold) {
+      // Threshold met! Skip the song.
+      this.nextSong();
+      return true; // Indicates a skip occurred
+    }
+    return false; // Indicates vote was registered but no skip yet
+  }
+
   public getState(): RoomState {
     return {
       id: this.id,
@@ -163,6 +222,8 @@ export class Room {
       currentSong: this.currentSong,
       currentSongStartTimestamp: this.currentSongStartTimestamp,
       queue: this.getComputedQueue(),
+      currentSongLikes: Array.from(this.currentSongLikes),
+      currentSongSkips: Array.from(this.currentSongSkips),
     };
   }
 }
