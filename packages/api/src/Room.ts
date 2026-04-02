@@ -43,7 +43,7 @@ export class Room {
       const existingUser = this.users.get(userId)!;
       existingUser.socketId = socketId;
       existingUser.nickname = nickname; // In case they changed it
-      existingUser.avatar = avatar; // In case they changed their emoji
+      existingUser.avatar = avatar || existingUser.avatar || '🕺'; // Ensure valid emoji, never undefined
       return existingUser;
     }
 
