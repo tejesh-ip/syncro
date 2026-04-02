@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import { Room } from './Room';
+import ytSearch from 'yt-search';
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,31 @@ const io = new Server(server, {
     origin: '*', // For MVP. Update for production
     methods: ['GET', 'POST'],
   },
+});
+
+// HTTP endpoint for YouTube Search
+app.get('/search', async (req, res) => {
+  try {
+    const q = req.query.q as string;
+    if (!q) {
+      return res.json([]);
+    }
+    
+    const r = await ytSearch(q);
+    // Return top 10 results
+    const videos = r.videos.slice(0, 10).map(v => ({
+      videoId: v.videoId,
+      title: v.title,
+      thumbnail: v.thumbnail,
+      author: v.author.name,
+      timestamp: v.timestamp // e.g. "4:30"
+    }));
+    
+    res.json(videos);
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ error: 'Search failed' });
+  }
 });
 
 // In-memory store for rooms

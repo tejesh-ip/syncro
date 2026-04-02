@@ -3,7 +3,8 @@
 import React from 'react';
 import { useStore } from '../store/useStore';
 import { YouTubePlayer } from './YouTubePlayer';
-import { Users, Music, Search } from 'lucide-react';
+import { SearchBox } from './SearchBox';
+import { Users, Music } from 'lucide-react';
 
 export const Room = () => {
   const { roomState, nickname, leaveRoom } = useStore();
@@ -63,20 +64,11 @@ export const Room = () => {
 
         {/* Right Column: Queue & Search */}
         <div className="w-full lg:w-96 flex flex-col gap-4 flex-shrink-0">
-          {/* Temporary Mock Search Box */}
-          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search YouTube..." 
-                className="w-full bg-gray-950 border border-gray-800 rounded-lg pl-10 pr-4 py-3 text-white focus:outline-none focus:border-cyan-400 transition-colors"
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">Search integration coming soon.</p>
+          <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 relative z-50">
+            <SearchBox />
           </div>
 
-          <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 overflow-hidden flex flex-col">
+          <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 overflow-hidden flex flex-col z-0">
             <div className="p-4 border-b border-gray-800 bg-gray-900/50">
               <h3 className="font-bold">Up Next ({roomState.queue.length})</h3>
             </div>
