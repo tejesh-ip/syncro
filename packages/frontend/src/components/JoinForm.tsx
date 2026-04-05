@@ -33,6 +33,12 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
     }
   }, [hasInit]);
 
+  useEffect(() => {
+    if (forcedRoomId) {
+      setRoomId(forcedRoomId);
+    }
+  }, [forcedRoomId]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nickname || !roomId) return;
@@ -44,28 +50,35 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
       cleanNickname = `DJ ${cleanNickname}`;
     }
     
-    if (forcedRoomId) {
-      connect();
-      joinRoom(cleanRoomId, cleanNickname, avatar);
-    } else {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('syncro_nickname', cleanNickname);
-        localStorage.setItem('syncro_avatar', avatar);
-      }
-      router.push(`/room/${cleanRoomId}`);
+    connect();
+    joinRoom(cleanRoomId, cleanNickname, avatar);
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('syncro_nickname', cleanNickname);
+      localStorage.setItem('syncro_avatar', avatar);
     }
+    
+    router.push(`/room/${cleanRoomId}`);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 text-white p-4">
-      <div className="text-center mb-12">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-950 md:bg-transparent text-white p-4">
+      {/* Hide header on large screens when used in lobby */}
+      <div className="text-center mb-8 md:hidden">
         <h1 className="text-6xl font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
           SYNCRO
         </h1>
         <p className="text-gray-400 text-lg">Social listening. Perfectly synchronized.</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-gray-900 p-8 rounded-2xl shadow-2xl border border-gray-800">
+      <div className="w-full max-w-sm mb-6 text-center hidden md:block">
+        <h2 className="text-2xl font-bold">{forcedRoomId ? 'Join Room' : 'Start a Party'}</h2>
+        <p className="text-gray-400 text-sm mt-2">
+          {forcedRoomId ? `You are about to join ${forcedRoomId}` : 'Create a new room or enter a code'}
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="w-full max-w-sm bg-gray-900 md:bg-gray-900/50 p-8 rounded-2xl shadow-2xl border border-gray-800 md:border-gray-800/50 backdrop-blur-sm">
         
         {/* Avatar Selection */}
         <div className="mb-6">
@@ -128,12 +141,21 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
           />
         </div>
 
+        {forcedRoomId && (
+          <div className="mb-6 p-4 bg-cyan-950/40 border border-cyan-500/30 rounded-xl flex items-center gap-3 animate-pulse">
+            <div className="w-2 h-2 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
+            <p className="text-cyan-100 text-sm font-medium">
+              Room <span className="font-bold text-cyan-400 uppercase">{forcedRoomId}</span> selected. Ready to join!
+            </p>
+          </div>
+        )}
+
         <button
           type="submit"
-          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-95"
+          className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-fuchsia-500 hover:from-cyan-400 hover:to-fuchsia-400 text-white font-bold py-3 px-4 rounded-lg transition-all transform hover:scale-[1.02] active:scale-95 shadow-[0_0_20px_rgba(34,211,238,0.3)]"
         >
-          <PlayCircle size={20} />
-          {forcedRoomId ? 'Join Room' : 'Enter Room'}
+          <PlayCircle size={20} className={forcedRoomId ? "animate-bounce" : ""} />
+          {forcedRoomId ? 'Click to Join Now' : 'Enter Room'}
         </button>
       </form>
     </div>

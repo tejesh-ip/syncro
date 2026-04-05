@@ -68,6 +68,19 @@ const rooms = new Map<string, Room>();
 const socketRoomMap = new Map<string, string>();
 const socketUserMap = new Map<string, string>(); // socket.id -> userId
 
+app.get('/rooms', (req, res) => {
+  const activeRooms = Array.from(rooms.values()).map(room => {
+    return {
+      id: room.id,
+      userCount: room.users.size,
+      currentSongTitle: room.currentSong ? room.currentSong.title : null,
+      djs: Array.from(room.users.values()).slice(0, 3).map(u => u.avatar),
+    };
+  });
+  
+  res.json(activeRooms);
+});
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
