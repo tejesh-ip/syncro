@@ -21,8 +21,7 @@ export default function Home() {
   const fetchRooms = async () => {
     setLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${apiUrl}/rooms`);
+      const res = await fetch(`${window.location.origin}/rooms`);
       if (res.ok) {
         const data = await res.json();
         setRooms(data);

@@ -30,8 +30,7 @@ export const SearchBox = () => {
       }
       setIsSearching(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const res = await fetch(`${apiUrl}/search?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`${window.location.origin}/search?q=${encodeURIComponent(query)}`);
         const data = await res.json();
         setResults(data);
       } catch (error) {
