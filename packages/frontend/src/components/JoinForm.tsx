@@ -68,7 +68,7 @@ export const JoinForm = ({ forcedRoomId }: { forcedRoomId?: string }) => {
         <h1 className="text-6xl font-black tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
           SYNCRO
         </h1>
-        <p className="text-gray-400 text-lg">Social listening. Perfectly synchronized.</p>
+        <p className="text-gray-400 text-lg">Tune in together.</p>
       </div>
 
       <div className="w-full max-w-sm mb-6 text-center hidden md:block">

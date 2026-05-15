@@ -48,7 +48,7 @@ export default function Home() {
             <h1 className="text-5xl md:text-6xl font-black tracking-tighter mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-fuchsia-500">
               SYNCRO
             </h1>
-            <p className="text-gray-400 text-lg">Social listening. Perfectly synchronized.</p>
+            <p className="text-gray-400 text-lg">Tune in together.</p>
           </div>
           
           <button 
