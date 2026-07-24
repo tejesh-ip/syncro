@@ -2,6 +2,7 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import 'dotenv/config';
 import { Room } from './Room';
 import ytSearch from 'yt-search';
 
@@ -18,6 +19,87 @@ const io = new Server(server, {
 
 const searchCache = new Map<string, { data: any[], expiresAt: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
+
+const parseYouTubeDuration = (duration: string): number => {
+  const match = duration.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!match) return 0;
+
+  const hours = Number(match[1] || 0);
+  const minutes = Number(match[2] || 0);
+  const seconds = Number(match[3] || 0);
+
+  return hours * 3600 + minutes * 60 + seconds;
+};
+
+const searchYouTubeDataApi = async (query: string) => {
+  if (!YOUTUBE_API_KEY) return null;
+
+  const searchParams = new URLSearchParams({
+    key: YOUTUBE_API_KEY,
+    part: 'snippet',
+    q: `${query} song audio`,
+    type: 'video',
+    videoEmbeddable: 'true',
+    videoCategoryId: '10',
+    maxResults: '15',
+    safeSearch: 'none',
+  });
+
+  const searchResponse = await fetch(
+    `https://www.googleapis.com/youtube/v3/search?${searchParams.toString()}`
+  );
+
+  if (!searchResponse.ok) {
+    throw new Error(`YouTube search failed with ${searchResponse.status}`);
+  }
+
+  const searchData = await searchResponse.json();
+  const videoIds = (searchData.items || [])
+    .map((item: any) => item.id?.videoId)
+    .filter(Boolean);
+
+  if (videoIds.length === 0) return [];
+
+  const detailsParams = new URLSearchParams({
+    key: YOUTUBE_API_KEY,
+    part: 'snippet,contentDetails,status',
+    id: videoIds.join(','),
+    maxResults: '15',
+  });
+
+  const detailsResponse = await fetch(
+    `https://www.googleapis.com/youtube/v3/videos?${detailsParams.toString()}`
+  );
+
+  if (!detailsResponse.ok) {
+    throw new Error(`YouTube details failed with ${detailsResponse.status}`);
+  }
+
+  const detailsData = await detailsResponse.json();
+
+  return (detailsData.items || [])
+    .filter((item: any) => item.status?.embeddable && item.status?.privacyStatus === 'public')
+    .map((item: any) => {
+      const duration = parseYouTubeDuration(item.contentDetails?.duration || '');
+      return {
+        videoId: item.id,
+        title: item.snippet?.title || 'Untitled video',
+        thumbnail:
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url ||
+          '',
+        author: item.snippet?.channelTitle || 'YouTube',
+        timestamp:
+          duration > 0
+            ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}`
+            : '--:--',
+        duration,
+      };
+    })
+    .filter((video: any) => video.duration > 0 && video.duration < 900)
+    .slice(0, 10);
+};
 
 app.get('/search', async (req, res) => {
   try {
@@ -36,23 +118,28 @@ app.get('/search', async (req, res) => {
       }
     }
 
-    // Append "audio" or "song" to highly bias YouTube's search algorithm towards music
-    const searchQuery = `${q} song audio`;
-    const r = await ytSearch(searchQuery);
-    
-    // Filter out obvious non-music videos (e.g. movies, long compilations)
-    // Most standard songs are under 10 minutes (600 seconds)
-    // We'll allow up to 15 minutes (900 seconds) just in case it's a long mix or extended version
-    const musicVideos = r.videos.filter(v => v.seconds < 900);
-    
-    const videos = musicVideos.slice(0, 10).map(v => ({
-      videoId: v.videoId,
-      title: v.title,
-      thumbnail: v.thumbnail,
-      author: v.author.name,
-      timestamp: v.timestamp,
-      duration: v.seconds // Add duration in seconds
-    }));
+    const apiVideos = await searchYouTubeDataApi(q);
+    let videos = apiVideos;
+
+    if (!videos) {
+      // Append "audio" or "song" to highly bias YouTube's search algorithm towards music
+      const searchQuery = `${q} song audio`;
+      const r = await ytSearch(searchQuery);
+      
+      // Filter out obvious non-music videos (e.g. movies, long compilations)
+      // Most standard songs are under 10 minutes (600 seconds)
+      // We'll allow up to 15 minutes (900 seconds) just in case it's a long mix or extended version
+      const musicVideos = r.videos.filter(v => v.seconds < 900);
+      
+      videos = musicVideos.slice(0, 10).map(v => ({
+        videoId: v.videoId,
+        title: v.title,
+        thumbnail: v.thumbnail,
+        author: v.author.name,
+        timestamp: v.timestamp,
+        duration: v.seconds // Add duration in seconds
+      }));
+    }
     
     // Save to Cache
     searchCache.set(q, { data: videos, expiresAt: Date.now() + CACHE_TTL });

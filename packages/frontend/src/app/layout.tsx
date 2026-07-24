@@ -13,8 +13,35 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	title: "Enjoy the music along with your friends",
-	description: "A YouTube music player for friends to listen together.",
+	applicationName: "Syncro",
+	title: {
+		default: "Syncro - Listen Together",
+		template: "%s | Syncro",
+	},
+	description:
+		"Create a shared music room, queue YouTube songs with friends, and stay synced in real time.",
+	keywords: [
+		"Syncro",
+		"shared music room",
+		"YouTube music player",
+		"group listening",
+		"listen together",
+	],
+	creator: "Syncro",
+	publisher: "Syncro",
+	openGraph: {
+		title: "Syncro - Listen Together",
+		description:
+			"Create a shared music room, queue YouTube songs with friends, and stay synced in real time.",
+		siteName: "Syncro",
+		type: "website",
+	},
+	twitter: {
+		card: "summary",
+		title: "Syncro - Listen Together",
+		description:
+			"Create a shared music room, queue YouTube songs with friends, and stay synced in real time.",
+	},
 };
 
 export default function RootLayout({

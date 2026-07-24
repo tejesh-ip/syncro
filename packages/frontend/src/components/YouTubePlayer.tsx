@@ -8,15 +8,46 @@ import { PlayCircle } from 'lucide-react';
 export const YouTubePlayer = () => {
   const { roomState, emitSongEnded, volume } = useStore();
   const playerRef = useRef<YTPlayerType | null>(null);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [playerError, setPlayerError] = useState<string | null>(null);
+  const loadedSongIdRef = useRef<string | null>(null);
+  const skipTimerRef = useRef<number | null>(null);
+  const hasTriedUserPlayRef = useRef(false);
+  const [autoplayBlockedSongId, setAutoplayBlockedSongId] = useState<string | null>(null);
+  const [playerError, setPlayerError] = useState<{ songId: string; message: string } | null>(null);
 
   const currentSong = roomState?.currentSong;
   const currentSongStartTimestamp = roomState?.currentSongStartTimestamp;
+  const visiblePlayerError =
+    playerError && playerError.songId === currentSong?.id ? playerError.message : null;
+  const autoplayBlocked = autoplayBlockedSongId === currentSong?.id;
 
   useEffect(() => {
-    playerRef.current = null;
-  }, [currentSong?.videoId]);
+    if (!currentSong) {
+      loadedSongIdRef.current = null;
+      return;
+    }
+
+    if (!playerRef.current || loadedSongIdRef.current === currentSong.id) return;
+
+    loadedSongIdRef.current = currentSong.id;
+
+    const startSeconds = currentSongStartTimestamp
+      ? Math.max(0, (Date.now() - currentSongStartTimestamp) / 1000)
+      : 0;
+
+    playerRef.current.loadVideoById({
+      videoId: currentSong.videoId,
+      startSeconds,
+    });
+    playerRef.current.playVideo();
+  }, [currentSong, currentSongStartTimestamp]);
+
+  useEffect(() => {
+    return () => {
+      if (skipTimerRef.current) {
+        window.clearTimeout(skipTimerRef.current);
+      }
+    };
+  }, []);
 
   // React to Volume Changes
   useEffect(() => {
@@ -33,10 +64,10 @@ export const YouTubePlayer = () => {
     
       const state = playerRef.current.getPlayerState();
       
-      if (state === 2 || state === -1 || state === 5) {
-        setAutoplayBlocked(true);
-      } else {
-        setAutoplayBlocked(false);
+      if (state === YouTube.PlayerState.PAUSED && hasTriedUserPlayRef.current) {
+        setAutoplayBlockedSongId(currentSong?.id || null);
+      } else if (state === YouTube.PlayerState.PLAYING || state === YouTube.PlayerState.BUFFERING) {
+        setAutoplayBlockedSongId(null);
       }
 
       if (state === 1 || state === 3) {
@@ -49,15 +80,28 @@ export const YouTubePlayer = () => {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentSongStartTimestamp]);
+  }, [currentSong?.id, currentSongStartTimestamp]);
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
-    setAutoplayBlocked(false);
+    setAutoplayBlockedSongId(null);
     setPlayerError(null);
     if (typeof event.target.setVolume === 'function') {
       event.target.setVolume(volume);
     }
+
+    if (currentSong && loadedSongIdRef.current !== currentSong.id) {
+      loadedSongIdRef.current = currentSong.id;
+      const startSeconds = currentSongStartTimestamp
+        ? Math.max(0, (Date.now() - currentSongStartTimestamp) / 1000)
+        : 0;
+
+      event.target.loadVideoById({
+        videoId: currentSong.videoId,
+        startSeconds,
+      });
+    }
+
     event.target.playVideo();
   };
 
@@ -69,12 +113,13 @@ export const YouTubePlayer = () => {
     }
 
     if (event.data === YouTube.PlayerState.PLAYING) {
-      setAutoplayBlocked(false);
+      hasTriedUserPlayRef.current = false;
+      setAutoplayBlockedSongId(null);
       setPlayerError(null);
     }
 
-    if (event.data === YouTube.PlayerState.PAUSED) {
-      setAutoplayBlocked(true);
+    if (event.data === YouTube.PlayerState.PAUSED && hasTriedUserPlayRef.current) {
+      setAutoplayBlockedSongId(currentSong?.id || null);
     }
   };
 
@@ -83,15 +128,35 @@ export const YouTubePlayer = () => {
       2: 'This video ID is invalid.',
       5: 'This video cannot be played in this browser.',
       100: 'This video is unavailable.',
-      101: 'The owner does not allow this video to play embedded here.',
-      150: 'The owner does not allow this video to play embedded here.',
+      101: 'This video can only be watched on YouTube. Skipping to the next song.',
+      150: 'This video can only be watched on YouTube. Skipping to the next song.',
     };
 
-    setPlayerError(
-      errorMessages[event.data as number] ||
-        'YouTube playback was blocked. Disable ad blockers or browser shields for this site, then retry.'
-    );
-    setAutoplayBlocked(true);
+    const errorCode = event.data as number;
+    console.warn('YouTube player error', {
+      errorCode,
+      videoId: currentSong?.videoId,
+      title: currentSong?.title,
+    });
+
+    setPlayerError({
+      songId: currentSong?.id || '',
+      message:
+        errorMessages[errorCode] ||
+        'YouTube playback was blocked. Disable ad blockers or browser shields for this site, then retry.',
+    });
+    setAutoplayBlockedSongId(currentSong?.id || null);
+
+    if (currentSong && [2, 100, 101, 150].includes(errorCode)) {
+      if (skipTimerRef.current) {
+        window.clearTimeout(skipTimerRef.current);
+      }
+
+      const blockedVideoId = currentSong.videoId;
+      skipTimerRef.current = window.setTimeout(() => {
+        emitSongEnded(blockedVideoId);
+      }, 1500);
+    }
   };
 
   const opts: YouTubeProps['opts'] = {
@@ -128,29 +193,38 @@ export const YouTubePlayer = () => {
       <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }} />
       
       {/* Autoplay Blocked Overlay - Z-index 20 so it sits above the blocking div */}
-      {(autoplayBlocked || playerError) && (
+      {(autoplayBlocked || visiblePlayerError) && (
         <div 
           className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-md cursor-pointer transition-opacity"
           onClick={() => {
             if (playerRef.current) {
               setPlayerError(null);
+              setAutoplayBlockedSongId(null);
+              hasTriedUserPlayRef.current = true;
+
+              if (currentSongStartTimestamp) {
+                const elapsedSeconds = Math.max(0, (Date.now() - currentSongStartTimestamp) / 1000);
+                playerRef.current.seekTo(elapsedSeconds, true);
+              }
+
+              if (typeof playerRef.current.unMute === 'function') {
+                playerRef.current.unMute();
+              }
               playerRef.current.playVideo();
-              setAutoplayBlocked(false);
             }
           }}
         >
           <div className="flex flex-col items-center bg-gray-900/90 p-8 rounded-2xl border border-gray-700 hover:border-cyan-400 transition-colors shadow-2xl transform hover:scale-105 duration-200">
             <PlayCircle size={64} className="text-cyan-400 mb-4 animate-pulse" />
-            <h3 className="text-2xl font-bold mb-2">{playerError ? 'Playback Blocked' : 'Tap to Sync & Play'}</h3>
+            <h3 className="text-2xl font-bold mb-2">{visiblePlayerError ? 'Playback Blocked' : 'Tap to Sync & Play'}</h3>
             <p className="text-sm text-gray-400 text-center max-w-xs">
-              {playerError || 'Your browser paused the audio. Click anywhere to sync with the room and continue listening.'}
+              {visiblePlayerError || 'Your browser paused the audio. Click anywhere to sync with the room and continue listening.'}
             </p>
           </div>
         </div>
       )}
 
       <YouTube
-        key={currentSong.videoId}
         videoId={currentSong.videoId}
         opts={opts}
         onReady={onReady}
