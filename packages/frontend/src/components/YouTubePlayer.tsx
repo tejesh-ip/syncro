@@ -9,9 +9,14 @@ export const YouTubePlayer = () => {
   const { roomState, emitSongEnded, volume } = useStore();
   const playerRef = useRef<YTPlayerType | null>(null);
   const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+  const [playerError, setPlayerError] = useState<string | null>(null);
 
   const currentSong = roomState?.currentSong;
   const currentSongStartTimestamp = roomState?.currentSongStartTimestamp;
+
+  useEffect(() => {
+    playerRef.current = null;
+  }, [currentSong?.videoId]);
 
   // React to Volume Changes
   useEffect(() => {
@@ -30,7 +35,6 @@ export const YouTubePlayer = () => {
       
       if (state === 2 || state === -1 || state === 5) {
         setAutoplayBlocked(true);
-        playerRef.current.playVideo();
       } else {
         setAutoplayBlocked(false);
       }
@@ -49,6 +53,8 @@ export const YouTubePlayer = () => {
 
   const onReady = (event: YouTubeEvent) => {
     playerRef.current = event.target;
+    setAutoplayBlocked(false);
+    setPlayerError(null);
     if (typeof event.target.setVolume === 'function') {
       event.target.setVolume(volume);
     }
@@ -64,12 +70,28 @@ export const YouTubePlayer = () => {
 
     if (event.data === YouTube.PlayerState.PLAYING) {
       setAutoplayBlocked(false);
+      setPlayerError(null);
     }
 
     if (event.data === YouTube.PlayerState.PAUSED) {
       setAutoplayBlocked(true);
-      event.target.playVideo();
     }
+  };
+
+  const onError = (event: YouTubeEvent) => {
+    const errorMessages: Record<number, string> = {
+      2: 'This video ID is invalid.',
+      5: 'This video cannot be played in this browser.',
+      100: 'This video is unavailable.',
+      101: 'The owner does not allow this video to play embedded here.',
+      150: 'The owner does not allow this video to play embedded here.',
+    };
+
+    setPlayerError(
+      errorMessages[event.data as number] ||
+        'YouTube playback was blocked. Disable ad blockers or browser shields for this site, then retry.'
+    );
+    setAutoplayBlocked(true);
   };
 
   const opts: YouTubeProps['opts'] = {
@@ -77,6 +99,9 @@ export const YouTubePlayer = () => {
     width: '100%',
     playerVars: {
       autoplay: 1,
+      enablejsapi: 1,
+      origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      playsinline: 1,
       controls: 0,      // Hide controls
       disablekb: 1,     // Disable keyboard shortcuts
       fs: 0,            // Disable fullscreen
@@ -103,11 +128,12 @@ export const YouTubePlayer = () => {
       <div className="absolute inset-0 z-10" style={{ pointerEvents: 'none' }} />
       
       {/* Autoplay Blocked Overlay - Z-index 20 so it sits above the blocking div */}
-      {autoplayBlocked && (
+      {(autoplayBlocked || playerError) && (
         <div 
           className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-md cursor-pointer transition-opacity"
           onClick={() => {
             if (playerRef.current) {
+              setPlayerError(null);
               playerRef.current.playVideo();
               setAutoplayBlocked(false);
             }
@@ -115,19 +141,21 @@ export const YouTubePlayer = () => {
         >
           <div className="flex flex-col items-center bg-gray-900/90 p-8 rounded-2xl border border-gray-700 hover:border-cyan-400 transition-colors shadow-2xl transform hover:scale-105 duration-200">
             <PlayCircle size={64} className="text-cyan-400 mb-4 animate-pulse" />
-            <h3 className="text-2xl font-bold mb-2">Tap to Sync & Play</h3>
+            <h3 className="text-2xl font-bold mb-2">{playerError ? 'Playback Blocked' : 'Tap to Sync & Play'}</h3>
             <p className="text-sm text-gray-400 text-center max-w-xs">
-              Your browser paused the audio. Click anywhere to sync with the room and continue listening.
+              {playerError || 'Your browser paused the audio. Click anywhere to sync with the room and continue listening.'}
             </p>
           </div>
         </div>
       )}
 
       <YouTube
+        key={currentSong.videoId}
         videoId={currentSong.videoId}
         opts={opts}
         onReady={onReady}
         onStateChange={onStateChange}
+        onError={onError}
         className="w-full h-full pointer-events-none" // Extra safety
         iframeClassName="w-full h-full pointer-events-none"
       />
