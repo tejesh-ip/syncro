@@ -17,7 +17,7 @@ const io = new Server(server, {
   },
 });
 
-const searchCache = new Map<string, { data: any[], expiresAt: number }>();
+const searchCache = new Map<string, { data: any[], expiresAt: number, source: string }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 
@@ -114,14 +114,17 @@ app.get('/search', async (req, res) => {
     if (searchCache.has(q)) {
       const cached = searchCache.get(q)!;
       if (Date.now() < cached.expiresAt) {
+        res.setHeader('X-Syncro-Search-Source', `cache-${cached.source}`);
         return res.json(cached.data);
       }
     }
 
     const apiVideos = await searchYouTubeDataApi(q);
     let videos = apiVideos;
+    let source = 'youtube-data-api';
 
     if (!videos) {
+      source = 'yt-search-fallback';
       // Append "audio" or "song" to highly bias YouTube's search algorithm towards music
       const searchQuery = `${q} song audio`;
       const r = await ytSearch(searchQuery);
@@ -142,7 +145,8 @@ app.get('/search', async (req, res) => {
     }
     
     // Save to Cache
-    searchCache.set(q, { data: videos, expiresAt: Date.now() + CACHE_TTL });
+    searchCache.set(q, { data: videos, expiresAt: Date.now() + CACHE_TTL, source });
+    res.setHeader('X-Syncro-Search-Source', source);
     
     res.json(videos);
   } catch (error) {
